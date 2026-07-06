@@ -1,0 +1,428 @@
+--[[
+    VORD-UNIVERSAL-EXECUTOR-v1
+    Architect: TEN WEAK
+    Directive: Absolute Precision. Zero Errors.
+]]
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+-- State & Configuration
+local Config = {
+    Aimbot = { Enabled = false, FOV = 100, TargetPart = "Head", Mode = "Normal", Smoothing = 0.5 },
+    ESP = { Enabled = false, Box = true, Line = true, Skeleton = false, Health = true, Name = true, Tracers = true, Color = Color3.fromRGB(0, 255, 0) },
+    Movement = { WalkSpeed = 16, JumpPower = 50, Enabled = false, InfJump = false },
+    FPS = { LowGraphics = false, RTX = false, Unlocker = false },
+    UI = { Theme = "Dark", Minimized = false, Visible = true }
+}
+
+local Themes = {
+    Dark = { BG = Color3.fromRGB(12, 12, 12), Sidebar = Color3.fromRGB(18, 18, 18), Accent = Color3.fromRGB(0, 122, 204), Text = Color3.fromRGB(255, 255, 255), Subtext = Color3.fromRGB(150, 150, 150), Border = Color3.fromRGB(35, 35, 35) },
+    Light = { BG = Color3.fromRGB(245, 245, 245), Sidebar = Color3.fromRGB(230, 230, 230), Accent = Color3.fromRGB(0, 100, 180), Text = Color3.fromRGB(20, 20, 20), Subtext = Color3.fromRGB(80, 80, 80), Border = Color3.fromRGB(200, 200, 200) }
+}
+local CurrentTheme = Themes.Dark
+
+-- Check Drawing API Availability
+local DrawingEnabled, DrawingAPI = pcall(function() return Drawing end)
+local ESPObjects = {}
+
+-- Helper: Create Instance
+local function Create(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props or {}) do obj[k] = v end
+    obj.Parent = parent
+    return obj
+end
+
+-- UI Construction
+local ScreenGui = Create("ScreenGui", {Name = "VORD_UI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling}, CoreGui)
+
+local MainFrame = Create("Frame", {
+    Name = "MainFrame", Size = UDim2.new(0, 550, 0, 350), Position = UDim2.new(0.5, -275, 0.5, -175),
+    BackgroundColor3 = CurrentTheme.BG, BorderSizePixel = 0, ClipsDescendants = true,
+    Active = true, Draggable = false -- Custom drag implemented below
+}, ScreenGui)
+
+local UICorner = Create("UICorner", {CornerRadius = UDim.new(0, 6)}, MainFrame)
+local UIStroke = Create("UIStroke", {Color = CurrentTheme.Border, Thickness = 1}, MainFrame)
+
+-- Top Bar
+local TopBar = Create("Frame", {Name = "TopBar", Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = CurrentTheme.Sidebar, BorderSizePixel = 0}, MainFrame)
+local Title = Create("TextLabel", {Size = UDim2.new(1, -80, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, Text = "VORD // UNIVERSAL", TextColor3 = CurrentTheme.Text, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, TopBar)
+
+local CloseBtn = Create("TextButton", {Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1, Text = "x", TextColor3 = CurrentTheme.Subtext, Font = Enum.Font.GothamBold, TextSize = 14}, TopBar)
+local MinBtn = Create("TextButton", {Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(1, -60, 0, 0), BackgroundTransparency = 1, Text = "-", TextColor3 = CurrentTheme.Subtext, Font = Enum.Font.GothamBold, TextSize = 14}, TopBar)
+
+-- Sidebar
+local Sidebar = Create("Frame", {Name = "Sidebar", Size = UDim2.new(0, 120, 1, -30), Position = UDim2.new(0, 0, 0, 30), BackgroundColor3 = CurrentTheme.Sidebar, BorderSizePixel = 0}, MainFrame)
+local Content = Create("Frame", {Name = "Content", Size = UDim2.new(1, -120, 1, -30), Position = UDim2.new(0, 120, 0, 30), BackgroundTransparency = 1}, MainFrame)
+
+-- Draggable Logic
+local Dragging, DragInput, DragStart, StartPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        Dragging = true
+        DragStart = input.Position
+        StartPos = MainFrame.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then Dragging = false end end)
+    end
+end)
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then DragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == DragInput and Dragging then
+        local delta = input.Position - DragStart
+        MainFrame.Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + delta.X, StartPos.Y.Scale, StartPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Minimize / Close
+MinBtn.MouseButton1Click:Connect(function()
+    Config.UI.Minimized = not Config.UI.Minimized
+    if Config.UI.Minimized then
+        MainFrame:TweenSize(UDim2.new(0, 550, 0, 30), "Out", "Quad", 0.2, true)
+    else
+        MainFrame:TweenSize(UDim2.new(0, 550, 0, 350), "Out", "Quad", 0.2, true)
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    Config.UI.Visible = false
+    ScreenGui:Destroy()
+    -- Clean up ESP
+    for _, obj in pairs(ESPObjects) do if obj.Destroy then obj:Destroy() end end
+end)
+
+-- UI Element Generators
+local function CreateTab(name, icon)
+    local btn = Create("TextButton", {
+        Size = UDim2.new(1, 0, 0, 35), BackgroundTransparency = 1,
+        Text = "  " .. icon .. "  " .. name, TextColor3 = CurrentTheme.Subtext,
+        Font = Enum.Font.GothamSemibold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
+        AutoButtonColor = false, Parent = Sidebar
+    })
+    local page = Create("Frame", {Name = name, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false}, Content)
+    return btn, page
+end
+
+local function CreateToggle(parent, text, yPos, callback)
+    local frame = Create("Frame", {Size = UDim2.new(1, -20, 0, 25), Position = UDim2.new(0, 10, 0, yPos), BackgroundTransparency = 1}, parent)
+    local label = Create("TextLabel", {Size = UDim2.new(1, -40, 1, 0), BackgroundTransparency = 1, Text = text, TextColor3 = CurrentTheme.Text, Font = Enum.Font.Gotham, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, frame)
+    local box = Create("Frame", {Size = UDim2.new(0, 30, 0, 16), Position = UDim2.new(1, -30, 0.5, -8), BackgroundColor3 = CurrentTheme.BG, BorderSizePixel = 0}, frame)
+    Create("UICorner", {CornerRadius = UDim.new(1, 0)}, box)
+    local circle = Create("Frame", {Size = UDim2.new(0, 12, 0, 12), Position = UDim2.new(0, 2, 0.5, -6), BackgroundColor3 = CurrentTheme.Subtext, BorderSizePixel = 0}, box)
+    Create("UICorner", {CornerRadius = UDim.new(1, 0)}, circle)
+    
+    local enabled = false
+    local btn = Create("TextButton", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = ""}, box)
+    btn.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        circle:TweenPosition(UDim2.new(0, enabled and 16 or 2, 0.5, -6), "Out", "Quad", 0.2)
+        box.BackgroundColor3 = enabled and CurrentTheme.Accent or CurrentTheme.BG
+        circle.BackgroundColor3 = enabled and Color3.fromRGB(255,255,255) or CurrentTheme.Subtext
+        if callback then callback(enabled) end
+    end)
+    return frame
+end
+
+local function CreateSlider(parent, text, yPos, min, max, default, callback)
+    local frame = Create("Frame", {Size = UDim2.new(1, -20, 0, 40), Position = UDim2.new(0, 10, 0, yPos), BackgroundTransparency = 1}, parent)
+    local label = Create("TextLabel", {Size = UDim2.new(1, -40, 0, 15), BackgroundTransparency = 1, Text = text, TextColor3 = CurrentTheme.Text, Font = Enum.Font.Gotham, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, frame)
+    local valLabel = Create("TextLabel", {Size = UDim2.new(0, 40, 0, 15), Position = UDim2.new(1, -40, 0, 0), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = CurrentTheme.Accent, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, frame)
+    
+    local bg = Create("Frame", {Size = UDim2.new(1, 0, 0, 6), Position = UDim2.new(0, 0, 0, 25), BackgroundColor3 = CurrentTheme.BG, BorderSizePixel = 0}, frame)
+    Create("UICorner", {CornerRadius = UDim.new(1, 0)}, bg)
+    local fill = Create("Frame", {Size = UDim2.new((default-min)/(max-min), 0, 1, 0), BackgroundColor3 = CurrentTheme.Accent, BorderSizePixel = 0}, bg)
+    Create("UICorner", {CornerRadius = UDim.new(1, 0)}, fill)
+    
+    local dragging = false
+    bg.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
+    bg.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local rel = math.clamp((input.Position.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
+            fill.Size = UDim2.new(rel, 0, 1, 0)
+            local val = math.floor(min + (max - min) * rel)
+            valLabel.Text = tostring(val)
+            if callback then callback(val) end
+        end
+    end)
+    return frame
+end
+
+local function CreateButton(parent, text, yPos, callback)
+    local btn = Create("TextButton", {
+        Size = UDim2.new(1, -20, 0, 25), Position = UDim2.new(0, 10, 0, yPos),
+        BackgroundColor3 = CurrentTheme.Sidebar, Text = text, TextColor3 = CurrentTheme.Text,
+        Font = Enum.Font.GothamSemibold, TextSize = 12, BorderSizePixel = 0, Parent = parent
+    })
+    Create("UICorner", {CornerRadius = UDim.new(0, 4)}, btn)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- TABS CREATION
+local Tabs = {}
+Tabs.InfoBtn, Tabs.InfoPage = CreateTab("Info", "ⓘ")
+Tabs.CombatBtn, Tabs.CombatPage = CreateTab("Combat", "⊕")
+Tabs.VisualsBtn, Tabs.VisualsPage = CreateTab("Visuals", "◈")
+Tabs.MoveBtn, Tabs.MovePage = CreateTab("Movement", "⇌")
+Tabs.SettingsBtn, Tabs.SettingsPage = CreateTab("Settings", "⚙")
+
+-- Tab Switching Logic
+local currentTab = Tabs.InfoBtn
+local function SwitchTab(btn, page)
+    currentTab.BackgroundColor3 = CurrentTheme.Sidebar
+    currentTab.TextColor3 = CurrentTheme.Subtext
+    btn.BackgroundColor3 = CurrentTheme.Accent
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    currentTab = btn
+    for _, p in pairs(Content:GetChildren()) do if p:IsA("Frame") then p.Visible = false end end
+    page.Visible = true
+end
+
+for name, tab in pairs(Tabs) do
+    if name:find("Btn") then
+        tab.MouseButton1Click:Connect(function() SwitchTab(tab, Tabs[name:gsub("Btn", "Page")]) end)
+    end
+end
+SwitchTab(Tabs.InfoBtn, Tabs.InfoPage)
+
+-- MENU 1: INFO
+local InfoLayout = Create("UIListLayout", {Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, Tabs.InfoPage)
+Create("TextLabel", {Size = UDim2.new(1, -20, 0, 20), Position = UDim2.new(0, 10, 0, 10), BackgroundTransparency = 1, Text = "User: " .. LocalPlayer.Name, TextColor3 = CurrentTheme.Text, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = Tabs.InfoPage})
+Create("TextLabel", {Size = UDim2.new(1, -20, 0, 20), Position = UDim2.new(0, 10, 0, 35), BackgroundTransparency = 1, Text = "Game: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name, TextColor3 = CurrentTheme.Subtext, Font = Enum.Font.Gotham, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Parent = Tabs.InfoPage})
+
+CreateButton(Tabs.InfoPage, "Server Hop", 70, function()
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
+CreateButton(Tabs.InfoPage, "Rejoin Server", 100, function()
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+end)
+
+-- MENU 2: COMBAT (Aimbot & ESP)
+CreateToggle(Tabs.CombatPage, "Enable Aimbot", 10, function(v) Config.Aimbot.Enabled = v end)
+CreateSlider(Tabs.CombatPage, "FOV Radius", 45, 10, 500, 100, function(v) Config.Aimbot.FOV = v end)
+CreateButton(Tabs.CombatPage, "Target: Head", 90, function() Config.Aimbot.TargetPart = "Head" end)
+CreateButton(Tabs.CombatPage, "Target: Torso", 120, function() Config.Aimbot.TargetPart = "HumanoidRootPart" end)
+
+CreateToggle(Tabs.CombatPage, "Enable ESP", 170, function(v) Config.ESP.Enabled = v end)
+CreateToggle(Tabs.CombatPage, "ESP Boxes", 200, function(v) Config.ESP.Box = v end)
+CreateToggle(Tabs.CombatPage, "ESP Tracers", 230, function(v) Config.ESP.Tracers = v end)
+CreateToggle(Tabs.CombatPage, "ESP Health", 260, function(v) Config.ESP.Health = v end)
+
+-- MENU 3: VISUALS (FPS)
+CreateToggle(Tabs.VisualsPage, "Low Graphics (Minimize Lag)", 10, function(v)
+    Config.FPS.LowGraphics = v
+    if v then
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 100000
+        Lighting.Brightness = 1
+        for _, effect in pairs(Workspace:GetDescendants()) do
+            if effect:IsA("ParticleEmitter") or effect:IsA("Trail") or effect:IsA("Smoke") or effect:IsA("Fire") then
+                effect.Enabled = false
+            end
+        end
+    else
+        Lighting.GlobalShadows = true
+    end
+end)
+CreateToggle(Tabs.VisualsPage, "RTX / HD Mode", 40, function(v)
+    Config.FPS.RTX = v
+    if v then
+        Lighting.GlobalShadows = true
+        Lighting.ShadowMap = true
+        Lighting.Brightness = 2
+        Lighting.EnvironmentDiffuseScale = 1
+        Lighting.EnvironmentSpecularScale = 1
+    end
+end)
+
+-- MENU 4: MOVEMENT
+CreateToggle(Tabs.MovePage, "Enable Movement Spoof", 10, function(v) Config.Movement.Enabled = v end)
+CreateSlider(Tabs.MovePage, "Walk Speed", 45, 16, 500, 16, function(v) Config.Movement.WalkSpeed = v end)
+CreateSlider(Tabs.MovePage, "Jump Power", 90, 50, 500, 50, function(v) Config.Movement.JumpPower = v end)
+CreateToggle(Tabs.MovePage, "Infinite Jump", 135, function(v) Config.Movement.InfJump = v end)
+
+-- MENU 5: SETTINGS
+CreateButton(Tabs.SettingsPage, "Toggle Theme (Dark/Light)", 10, function()
+    Config.UI.Theme = Config.UI.Theme == "Dark" and "Light" or "Dark"
+    CurrentTheme = Themes[Config.UI.Theme]
+    -- Re-apply colors (simplified for core elements)
+    MainFrame.BackgroundColor3 = CurrentTheme.BG
+    Sidebar.BackgroundColor3 = CurrentTheme.Sidebar
+    TopBar.BackgroundColor3 = CurrentTheme.Sidebar
+    Title.TextColor3 = CurrentTheme.Text
+    UIStroke.Color = CurrentTheme.Border
+end)
+CreateButton(Tabs.SettingsPage, "Destroy UI", 40, function()
+    ScreenGui:Destroy()
+    for _, obj in pairs(ESPObjects) do if obj.Destroy then obj:Destroy() end end
+end)
+
+-- EXECUTION LOOPS
+local FOVCircle = nil
+if DrawingEnabled then
+    FOVCircle = DrawingAPI.new("Circle")
+    FOVCircle.Thickness = 1
+    FOVCircle.NumSides = 40
+    FOVCircle.Radius = Config.Aimbot.FOV
+    FOVCircle.Filled = false
+    FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+    FOVCircle.Visible = false
+    table.insert(ESPObjects, FOVCircle)
+end
+
+-- Aimbot & ESP Render Loop
+RunService.RenderStepped:Connect(function()
+    -- Aimbot FOV Circle
+    if DrawingEnabled and FOVCircle then
+        FOVCircle.Visible = Config.Aimbot.Enabled
+        FOVCircle.Radius = Config.Aimbot.FOV
+        FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y)
+    end
+
+    -- ESP Logic
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local head = player.Character:FindFirstChild("Head")
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            
+            if not humanoid or humanoid.Health <= 0 then
+                -- Clean up dead ESP
+                if ESPObjects[player] then
+                    for _, obj in pairs(ESPObjects[player]) do if obj.Destroy then obj:Destroy() end end
+                    ESPObjects[player] = nil
+                end
+                continue
+            end
+
+            if Config.ESP.Enabled and DrawingEnabled then
+                if not ESPObjects[player] then ESPObjects[player] = {} end
+                local objs = ESPObjects[player]
+                
+                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                
+                if onScreen then
+                    -- Box
+                    if Config.ESP.Box then
+                        if not objs.Box then
+                            objs.Box = DrawingAPI.new("Square")
+                            objs.Box.Thickness = 1
+                            objs.Box.Filled = false
+                        end
+                        local size = hrp.Size
+                        local topLeft, _ = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(-size.X, size.Y, 0))
+                        local bottomRight, _ = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(size.X, -size.Y, 0))
+                        objs.Box.Size = Vector2.new(bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y)
+                        objs.Box.Position = Vector2.new(topLeft.X, topLeft.Y)
+                        objs.Box.Color = Config.ESP.Color
+                        objs.Box.Visible = true
+                    elseif objs.Box then objs.Box.Visible = false end
+
+                    -- Tracers
+                    if Config.ESP.Tracers then
+                        if not objs.Line then objs.Line = DrawingAPI.new("Line") objs.Line.Thickness = 1 end
+                        objs.Line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        objs.Line.To = Vector2.new(pos.X, pos.Y)
+                        objs.Line.Color = Config.ESP.Color
+                        objs.Line.Visible = true
+                    elseif objs.Line then objs.Line.Visible = false end
+                    
+                    -- Name & Health
+                    if Config.ESP.Name or Config.ESP.Health then
+                        if not objs.Text then objs.Text = DrawingAPI.new("Text") objs.Text.Size = 12 objs.Text.Center = true objs.Text.Outline = true end
+                        local str = ""
+                        if Config.ESP.Name then str = str .. player.Name .. "\n" end
+                        if Config.ESP.Health then str = str .. math.floor(humanoid.Health) .. " HP" end
+                        objs.Text.Text = str
+                        objs.Text.Position = Vector2.new(pos.X, pos.Y - 40)
+                        objs.Text.Color = Config.ESP.Color
+                        objs.Text.Visible = true
+                    elseif objs.Text then objs.Text.Visible = false end
+                else
+                    if objs.Box then objs.Box.Visible = false end
+                    if objs.Line then objs.Line.Visible = false end
+                    if objs.Text then objs.Text.Visible = false end
+                end
+            else
+                if ESPObjects[player] then
+                    for _, obj in pairs(ESPObjects[player]) do if obj.Destroy then obj:Destroy() end end
+                    ESPObjects[player] = nil
+                end
+            end
+            
+            
+                
+             -- Aimbot Target Lock
+            if Config.Aimbot.Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+                local target = nil
+                local minDist = Config.Aimbot.FOV
+                
+                for _, other in pairs(Players:GetPlayers()) do
+                    if other ~= LocalPlayer and other.Character and other.Character:FindFirstChild(Config.Aimbot.TargetPart) then
+                        local hum = other.Character:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health > 0 then
+                            local part = other.Character[Config.Aimbot.TargetPart]
+                            local screenPos, vis = Camera:WorldToViewportPoint(part.Position)
+                            if vis then
+                                local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                                if dist < minDist then
+                                    minDist = dist
+                                    target = part
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                if target then
+                    if Config.Aimbot.Mode == "Normal" then
+                        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+                    elseif Config.Aimbot.Mode == "Legit" then
+                        local goalCF = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+                        Camera.CFrame = Camera.CFrame:Lerp(goalCF, math.clamp(Config.Aimbot.Smoothing, 0.1, 0.9))
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Infinite Jump Logic
+UserInputService.JumpRequest:Connect(function()
+    if Config.Movement.InfJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- Cleanup on Character Death/Respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart")
+    -- Re-apply movement spoof if enabled
+    if Config.Movement.Enabled then
+        local hum = char:WaitForChild("Humanoid")
+        hum.WalkSpeed = Config.Movement.WalkSpeed
+        hum.JumpPower = Config.Movement.JumpPower
+    end
+end)
+
+-- UI Initialization Fallback
+if not Config.UI.Visible then
+    ScreenGui.Enabled = false
+end
+
+print("[VORD-EXECUTOR] :: SYSTEM ONLINE. AWAITING DIRECTIVES.")
