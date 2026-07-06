@@ -1,0 +1,923 @@
+-- SKYHUB PREMIUM EDITION v3.0 - DELTA EXECUTOR
+-- Architect: TEN WEAK for VORD
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local Stats = game:GetService("Stats")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+-- Configuration
+local Config = {
+    Fly = {Enabled = false, Speed = 60},
+    Noclip = false,
+    Speed = 60,
+    Jump = false,
+    JumpPower = 120,
+    ESP = false,
+    Teleport = false,
+    Aimbot = {Enabled = false, FOV = 120, Smoothness = 0.3, TargetPart = "Head"},
+    InfiniteJump = true,
+    WalkSpeed = 60,
+    FlySpeed = 100,
+    GodMode = false,
+    AntiAFK = true,
+    ChatSpam = false,
+    FPSUnlock = true,
+    Fullbright = false,
+    NoFog = false,
+    ThirdPerson = false,
+    GUIVisible = true
+}
+
+-- Colors
+local C = {
+    BG = Color3.fromRGB(8, 12, 20),
+    Sidebar = Color3.fromRGB(12, 18, 30),
+    Card = Color3.fromRGB(15, 22, 35),
+    CardBorder = Color3.fromRGB(25, 40, 65),
+    Accent = Color3.fromRGB(0, 140, 255),
+    AccentLight = Color3.fromRGB(0, 180, 255),
+    Text = Color3.fromRGB(220, 230, 240),
+    Subtext = Color3.fromRGB(120, 140, 160),
+    Green = Color3.fromRGB(0, 220, 120),
+    Red = Color3.fromRGB(220, 60, 60),
+    SearchBG = Color3.fromRGB(18, 26, 40)
+}
+
+-- Create ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SKYHUB_UI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui
+
+-- Helper Functions
+local function Create(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props or {}) do obj[k] = v end
+    if parent then obj.Parent = parent end
+    return obj
+end
+
+local function Tween(obj, props, time)
+    local tween = TweenService:Create(obj, TweenInfo.new(time or 0.2, Enum.EasingStyle.Quad), props)
+    tween:Play()
+    return tween
+end
+
+-- Main Container
+local MainFrame = Create("Frame", {
+    Name = "MainFrame",
+    Size = UDim2.new(0, 920, 0, 560),
+    Position = UDim2.new(0.5, -460, 0.5, -280),
+    BackgroundColor3 = C.BG,
+    BorderSizePixel = 0,
+    Active = true,
+    Draggable = false
+}, ScreenGui)
+
+Create("UICorner", {CornerRadius = UDim.new(0, 10)}, MainFrame)
+Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, MainFrame)
+
+-- Top Bar
+local TopBar = Create("Frame", {
+    Size = UDim2.new(1, 0, 0, 50),
+    BackgroundColor3 = C.BG,
+    BorderSizePixel = 0
+}, MainFrame)
+
+-- Logo
+local LogoFrame = Create("Frame", {
+    Size = UDim2.new(0, 220, 1, 0),
+    BackgroundTransparency = 1
+}, TopBar)
+
+local LogoIcon = Create("ImageLabel", {
+    Size = UDim2.new(0, 32, 0, 32),
+    Position = UDim2.new(0, 15, 0.5, -16),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://6031075938",
+    ImageColor3 = C.Accent
+}, LogoFrame)
+
+local LogoText = Create("TextLabel", {
+    Size = UDim2.new(0, 180, 0, 20),
+    Position = UDim2.new(0, 55, 0, 8),
+    BackgroundTransparency = 1,
+    Text = "SKYHUB",
+    TextColor3 = C.Text,
+    Font = Enum.Font.GothamBlack,
+    TextSize = 20,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, LogoFrame)
+
+local LogoSub = Create("TextLabel", {
+    Size = UDim2.new(0, 180, 0, 14),
+    Position = UDim2.new(0, 55, 0, 28),
+    BackgroundTransparency = 1,
+    Text = "PREMIUM EDITION v3.0",
+    TextColor3 = C.Subtext,
+    Font = Enum.Font.Gotham,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, LogoFrame)
+
+-- Status Boxes
+local StatusFrame = Create("Frame", {
+    Size = UDim2.new(0, 420, 0, 36),
+    Position = UDim2.new(0, 240, 0.5, -18),
+    BackgroundTransparency = 1
+}, TopBar)
+
+local function CreateStatusBox(text, value, color, xPos)
+    local box = Create("Frame", {
+        Size = UDim2.new(0, 95, 1, 0),
+        Position = UDim2.new(0, xPos, 0, 0),
+        BackgroundColor3 = C.Card,
+        BorderSizePixel = 0
+    }, StatusFrame)
+    Create("UICorner", {CornerRadius = UDim.new(0, 6)}, box)
+    Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, box)
+    
+    local lbl = Create("TextLabel", {
+        Size = UDim2.new(1, -10, 0, 12),
+        Position = UDim2.new(0, 5, 0, 4),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = C.Subtext,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, box)
+    
+    local val = Create("TextLabel", {
+        Size = UDim2.new(1, -10, 0, 16),
+        Position = UDim2.new(0, 5, 0, 16),
+        BackgroundTransparency = 1,
+        Text = value,
+        TextColor3 = color,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, box)
+    
+    return box
+end
+
+CreateStatusBox("Executor", "Delta •", C.Green, 0)
+CreateStatusBox("FPS", "144", C.Green, 105)
+CreateStatusBox("Ping", "24ms", C.Green, 210)
+
+local ConnBox = Create("Frame", {
+    Size = UDim2.new(0, 100, 1, 0),
+    Position = UDim2.new(0, 315, 0, 0),
+    BackgroundColor3 = C.Card,
+    BorderSizePixel = 0
+}, StatusFrame)
+Create("UICorner", {CornerRadius = UDim.new(0, 6)}, ConnBox)
+Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, ConnBox)
+Create("TextLabel", {Size = UDim2.new(1, -10, 0, 12), Position = UDim2.new(0, 5, 0, 4), BackgroundTransparency = 1, Text = "Status", TextColor3 = C.Subtext, Font = Enum.Font.Gotham, TextSize = 9}, ConnBox)
+
+local ConnDot = Create("Frame", {Size = UDim2.new(0, 8, 0, 8), Position = UDim2.new(0, 5, 0, 20), BackgroundColor3 = C.Green, BorderSizePixel = 0}, ConnBox)
+Create("UICorner", {CornerRadius = UDim.new(1, 0)}, ConnDot)
+Create("TextLabel", {Size = UDim2.new(1, -18, 0, 16), Position = UDim2.new(0, 18, 0, 16), BackgroundTransparency = 1, Text = "Connected", TextColor3 = C.Green, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, ConnBox)
+
+-- Search Bar
+local SearchBar = Create("Frame", {
+    Size = UDim2.new(0, 200, 0, 32),
+    Position = UDim2.new(1, -320, 0.5, -16),
+    BackgroundColor3 = C.SearchBG,
+    BorderSizePixel = 0
+}, TopBar)
+Create("UICorner", {CornerRadius = UDim.new(0, 6)}, SearchBar)
+Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, SearchBar)
+
+local SearchIcon = Create("TextLabel", {
+    Size = UDim2.new(0, 20, 1, 0),
+    BackgroundTransparency = 1,
+    Text = "",
+    TextSize = 12,
+    TextColor3 = C.Subtext
+}, SearchBar)
+
+local SearchInput = Create("TextBox", {
+    Size = UDim2.new(1, -25, 1, 0),
+    Position = UDim2.new(0, 22, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "Search features...",
+    TextColor3 = C.Subtext,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    PlaceholderText = "Search features..."
+}, SearchBar)
+
+-- Notification Bell
+local BellBtn = Create("TextButton", {
+    Size = UDim2.new(0, 32, 0, 32),
+    Position = UDim2.new(1, -120, 0.5, -16),
+    BackgroundColor3 = C.Card,
+    BorderSizePixel = 0,
+    Text = "🔔",
+    TextSize = 14
+}, TopBar)
+Create("UICorner", {CornerRadius = UDim.new(0, 6)}, BellBtn)
+
+local Badge = Create("Frame", {
+    Size = UDim2.new(0, 16, 0, 16),
+    Position = UDim2.new(1, -8, 0, -4),
+    BackgroundColor3 = C.Accent,
+    BorderSizePixel = 0
+}, BellBtn)
+Create("UICorner", {CornerRadius = UDim.new(1, 0)}, Badge)
+Create("TextLabel", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "3", TextColor3 = Color3.fromRGB(255,255,255), Font = Enum.Font.GothamBold, TextSize = 9}, Badge)
+
+-- Minimize & Close
+local MinBtn = Create("TextButton", {
+    Size = UDim2.new(0, 32, 0, 32),
+    Position = UDim2.new(1, -80, 0.5, -16),
+    BackgroundColor3 = C.Card,
+    BorderSizePixel = 0,
+    Text = "−",
+    TextColor3 = C.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 16
+}, TopBar)
+Create("UICorner", {CornerRadius = UDim.new(0, 6)}, MinBtn)
+
+local CloseBtn = Create("TextButton", {
+    Size = UDim2.new(0, 32, 0, 32),
+    Position = UDim2.new(1, -40, 0.5, -16),
+    BackgroundColor3 = C.Card,
+    BorderSizePixel = 0,
+    Text = "✕",
+    TextColor3 = C.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14
+}, TopBar)
+Create("UICorner", {CornerRadius = UDim.new(0, 6)}, CloseBtn)
+
+-- Sidebar
+local Sidebar = Create("Frame", {
+    Size = UDim2.new(0, 180, 1, -50),
+    Position = UDim2.new(0, 0, 0, 50),
+    BackgroundColor3 = C.Sidebar,
+    BorderSizePixel = 0
+}, MainFrame)
+
+-- Sidebar Menu Items
+local MenuItems = {
+    {Name = "Dashboard", Icon = ""},
+    {Name = "Movement", Icon = "🏃"},
+    {Name = "Combat", Icon = "⚔️"},
+    {Name = "Visual", Icon = "👁️"},
+    {Name = "Player", Icon = "👤"},
+    {Name = "Utility", Icon = "🔧"},
+    {Name = "Server", Icon = "️"},
+    {Name = "Misc", Icon = "⚙️"},
+    {Name = "Settings", Icon = "⚙️"}
+}
+
+local Tabs = {}
+local Pages = {}
+local CurrentTab = nil
+
+for i, item in ipairs(MenuItems) do
+    local btn = Create("TextButton", {
+        Size = UDim2.new(1, -10, 0, 38),
+        Position = UDim2.new(0, 5, 0, 5 + (i-1) * 42),
+        BackgroundColor3 = i == 1 and C.Accent or Color3.fromRGB(0,0,0,0),
+        BackgroundTransparency = i == 1 and 0 or 1,
+        BorderSizePixel = 0,
+        Text = "  " .. item.Icon .. "  " .. item.Name,
+        TextColor3 = i == 1 and Color3.fromRGB(255,255,255) or C.Text,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AutoButtonColor = false
+    }, Sidebar)
+    Create("UICorner", {CornerRadius = UDim.new(0, 6)}, btn)
+    
+    local page = Create("ScrollingFrame", {
+        Name = item.Name,
+        Size = UDim2.new(1, -190, 1, -80),
+        Position = UDim2.new(0, 190, 0, 60),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = C.Accent,
+        Visible = i == 1,
+        CanvasSize = UDim2.new(0, 0, 0, 800)
+    }, MainFrame)
+    Create("UIListLayout", {Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder}, page)
+    
+    Tabs[item.Name] = btn
+    Pages[item.Name] = page
+    
+    btn.MouseButton1Click:Connect(function()
+        if CurrentTab then
+            CurrentTab.BackgroundColor3 = Color3.fromRGB(0,0,0,0)
+            CurrentTab.BackgroundTransparency = 1
+            CurrentTab.TextColor3 = C.Text
+        end
+        for _, p in pairs(Pages) do p.Visible = false end
+        btn.BackgroundColor3 = C.Accent
+        btn.BackgroundTransparency = 0
+        btn.TextColor3 = Color3.fromRGB(255,255,255)
+        CurrentTab = btn
+        page.Visible = true
+    end)
+    
+    if i == 1 then CurrentTab = btn end
+end
+
+-- Premium User Box at bottom of sidebar
+local PremiumBox = Create("Frame", {
+    Size = UDim2.new(1, -10, 0, 55),
+    Position = UDim2.new(0, 5, 1, -65),
+    BackgroundColor3 = C.Card,
+    BorderSizePixel = 0
+}, Sidebar)
+Create("UICorner", {CornerRadius = UDim.new(0, 8)}, PremiumBox)
+Create("UIStroke", {Color = C.Accent, Thickness = 1}, PremiumBox)
+
+local Avatar = Create("Frame", {
+    Size = UDim2.new(0, 36, 0, 36),
+    Position = UDim2.new(0, 8, 0.5, -18),
+    BackgroundColor3 = C.Accent,
+    BorderSizePixel = 0
+}, PremiumBox)
+Create("UICorner", {CornerRadius = UDim.new(1, 0)}, Avatar)
+Create("TextLabel", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "☁️", TextSize = 18}, Avatar)
+
+Create("TextLabel", {
+    Size = UDim2.new(1, -50, 0, 16),
+    Position = UDim2.new(0, 50, 0, 8),
+    BackgroundTransparency = 1,
+    Text = "Premium User 👑",
+    TextColor3 = C.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, PremiumBox)
+
+Create("TextLabel", {
+    Size = UDim2.new(1, -50, 0, 14),
+    Position = UDim2.new(0, 50, 0, 26),
+    BackgroundTransparency = 1,
+    Text = "Lifetime Access",
+    TextColor3 = C.Green,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, PremiumBox)
+
+-- Page Title
+local PageTitle = Create("TextLabel", {
+    Size = UDim2.new(1, -200, 0, 24),
+    Position = UDim2.new(0, 195, 0, 12),
+    BackgroundTransparency = 1,
+    Text = " DASHBOARD",
+    TextColor3 = C.AccentLight,
+    Font = Enum.Font.GothamBlack,
+    TextSize = 18,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, MainFrame)
+
+local PageSub = Create("TextLabel", {
+    Size = UDim2.new(1, -200, 0, 16),
+    Position = UDim2.new(0, 195, 0, 36),
+    BackgroundTransparency = 1,
+    Text = "Welcome back, Premium User!",
+    TextColor3 = C.Subtext,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, MainFrame)
+
+-- Quick Actions Bar
+local QuickActions = Create("Frame", {
+    Size = UDim2.new(1, -210, 0, 50),
+    Position = UDim2.new(0, 195, 0, 62),
+    BackgroundColor3 = C.Card,
+    BorderSizePixel = 0
+}, MainFrame)
+Create("UICorner", {CornerRadius = UDim.new(0, 8)}, QuickActions)
+Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, QuickActions)
+
+Create("TextLabel", {
+    Size = UDim2.new(0, 120, 0, 14),
+    Position = UDim2.new(0, 12, 0, 6),
+    BackgroundTransparency = 1,
+    Text = "⚡ QUICK ACTIONS",
+    TextColor3 = C.AccentLight,
+    Font = Enum.Font.GothamBold,
+    TextSize = 10
+}, QuickActions)
+
+local function CreateQuickBtn(text, icon, xPos, callback)
+    local btn = Create("TextButton", {
+        Size = UDim2.new(0, 105, 0, 30),
+        Position = UDim2.new(0, xPos, 0, 14),
+        BackgroundColor3 = C.Sidebar,
+        BorderSizePixel = 0,
+        Text = icon .. "  " .. text,
+        TextColor3 = C.Text,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 11,
+        AutoButtonColor = false
+    }, QuickActions)
+    Create("UICorner", {CornerRadius = UDim.new(0, 6)}, btn)
+    Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, btn)
+    
+    local status = Create("TextLabel", {
+        Size = UDim2.new(0, 30, 1, 0),
+        Position = UDim2.new(1, -32, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "OFF",
+        TextColor3 = C.Subtext,
+        Font = Enum.Font.GothamBold,
+        TextSize = 9
+    }, btn)
+    
+    local active = false
+    btn.MouseButton1Click:Connect(function()
+        active = not active
+        status.Text = active and "ON" or "OFF"
+        status.TextColor3 = active and C.Green or C.Subtext
+        btn.BackgroundColor3 = active and C.Accent or C.Sidebar
+        if callback then callback(active) end
+    end)
+    
+    return btn, status
+end
+
+local FlyQBtn, FlyQStatus = CreateQuickBtn("Fly", "✈️", 130, function(v) Config.Fly.Enabled = v end)
+local NoclipQBtn, NoclipQStatus = CreateQuickBtn("Noclip", "", 245, function(v) Config.Noclip = v end)
+local SpeedQBtn = Create("TextButton", {Size = UDim2.new(0, 105, 0, 30), Position = UDim2.new(0, 360, 0, 14), BackgroundColor3 = C.Sidebar, BorderSizePixel = 0, Text = "⚡  Speed  60", TextColor3 = C.Text, Font = Enum.Font.GothamSemibold, TextSize = 11, AutoButtonColor = false}, QuickActions)
+Create("UICorner", {CornerRadius = UDim.new(0, 6)}, SpeedQBtn)
+Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, SpeedQBtn)
+
+local JumpQBtn, JumpQStatus = CreateQuickBtn("Jump", "️", 475, function(v) Config.Jump = v end)
+local ESPQBtn, ESPQStatus = CreateQuickBtn("ESP", "👁️", 590, function(v) Config.ESP = v end)
+local TeleQBtn, TeleQStatus = CreateQuickBtn("Teleport", "📍", 705, function(v) Config.Teleport = v end)
+
+-- Dashboard Cards
+local function CreateCard(title, desc, icon, parent, yPos)
+    local card = Create("Frame", {
+        Size = UDim2.new(0.5, -15, 0, 80),
+        BackgroundColor3 = C.Card,
+        BorderSizePixel = 0,
+        LayoutOrder = yPos
+    }, parent)
+    Create("UICorner", {CornerRadius = UDim.new(0, 8)}, card)
+    Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, card)
+    
+    local iconFrame = Create("Frame", {
+        Size = UDim2.new(0, 50, 0, 50),
+        Position = UDim2.new(0, 12, 0.5, -25),
+        BackgroundColor3 = C.Sidebar,
+        BorderSizePixel = 0
+    }, card)
+    Create("UICorner", {CornerRadius = UDim.new(0, 8)}, iconFrame)
+    Create("TextLabel", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = icon, TextSize = 24}, iconFrame)
+    
+    Create("TextLabel", {
+        Size = UDim2.new(1, -140, 0, 18),
+        Position = UDim2.new(0, 70, 0, 12),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = C.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, card)
+    
+    Create("TextLabel", {
+        Size = UDim2.new(1, -140, 0, 30),
+        Position = UDim2.new(0, 70, 0, 32),
+        BackgroundTransparency = 1,
+        Text = desc,
+        TextColor3 = C.Subtext,
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true
+    }, card)
+    
+    return card
+end
+
+local function CreateToggleCard(title, desc, icon, parent, yPos, default, callback)
+    local card = CreateCard(title, desc, icon, parent, yPos)
+    
+    local toggleBg = Create("Frame", {
+        Size = UDim2.new(0, 44, 0, 22),
+        Position = UDim2.new(1, -56, 0.5, -11),
+        BackgroundColor3 = default and C.Accent or C.Sidebar,
+        BorderSizePixel = 0
+    }, card)
+    Create("UICorner", {CornerRadius = UDim.new(1, 0)}, toggleBg)
+    
+    local toggleCircle = Create("Frame", {
+        Size = UDim2.new(0, 18, 0, 18),
+        Position = UDim2.new(0, default and 24 or 2, 0.5, -9),
+        BackgroundColor3 = Color3.fromRGB(255,255,255),
+        BorderSizePixel = 0
+    }, toggleBg)
+    Create("UICorner", {CornerRadius = UDim.new(1, 0)}, toggleCircle)
+    
+    local btn = Create("TextButton", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = ""}, card)
+    local active = default
+    
+    btn.MouseButton1Click:Connect(function()
+        active = not active
+        toggleBg.BackgroundColor3 = active and C.Accent or C.Sidebar
+        toggleCircle:TweenPosition(UDim2.new(0, active and 24 or 2, 0.5, -9), "Out", "Quad", 0.2)
+        if callback then callback(active) end
+    end)
+end
+
+local function CreateSliderCard(title, desc, icon, parent, yPos, default, min, max, callback)
+    local card = CreateCard(title, desc, icon, parent, yPos)
+    
+    local valLabel = Create("TextLabel", {
+        Size = UDim2.new(0, 30, 0, 16),
+        Position = UDim2.new(1, -90, 0.5, -8),
+        BackgroundTransparency = 1,
+        Text = tostring(default),
+        TextColor3 = C.AccentLight,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12
+    }, card)
+    
+    local sliderBg = Create("Frame", {
+        Size = UDim2.new(0, 100, 0, 6),
+        Position = UDim2.new(1, -170, 0.5, -3),
+        BackgroundColor3 = C.Sidebar,
+        BorderSizePixel = 0
+    }, card)
+    Create("UICorner", {CornerRadius = UDim.new(1, 0)}, sliderBg)
+    
+    local sliderFill = Create("Frame", {
+        Size = UDim2.new((default-min)/(max-min), 0, 1, 0),
+        BackgroundColor3 = C.Accent,
+        BorderSizePixel = 0
+    }, sliderBg)
+    Create("UICorner", {CornerRadius = UDim.new(1, 0)}, sliderFill)
+    
+    local dragging = false
+    sliderBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+    end)
+    sliderBg.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local rel = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
+        sliderFill.Size = UDim2.new(rel, 0, 1, 0)
+        local val = math.floor(min + (max - min) * rel)
+        valLabel.Text = tostring(val)
+        if callback then callback(val) end
+    end
+end)
+end
+
+-- ESP & AIMBOT INITIALIZATION
+local DrawingEnabled, DrawingAPI = pcall(function() return Drawing end)
+local ESPObjects = {}
+local FOVCircle = nil
+
+if DrawingEnabled then
+    FOVCircle = DrawingAPI.new("Circle")
+    FOVCircle.Thickness = 1
+    FOVCircle.NumSides = 30
+    FOVCircle.Radius = Config.Aimbot.FOV
+    FOVCircle.Filled = false
+    FOVCircle.Color = Color3.fromRGB(0, 140, 255)
+    FOVCircle.Visible = false
+end
+
+-- DASHBOARD PAGE CARDS
+local DashPage = Pages["Dashboard"]
+CreateToggleCard("Fly", "Move freely in the air using camera direction.", "✈️", DashPage, 1, true, function(v) Config.Fly.Enabled = v end)
+CreateToggleCard("Noclip", "Walk through walls and objects.", "👻", DashPage, 2, true, function(v) Config.Noclip = v end)
+CreateToggleCard("Infinite Jump", "Jump unlimited times in the air.", "⬆️", DashPage, 3, true, function(v) Config.InfiniteJump = v end)
+CreateSliderCard("WalkSpeed", "Adjust your walking speed.", "🏃", DashPage, 4, 60, 16, 200, function(v) Config.WalkSpeed = v end)
+CreateSliderCard("Jump Power", "Adjust your jump power.", "🦘", DashPage, 5, 120, 50, 300, function(v) Config.JumpPower = v end)
+CreateSliderCard("Fly Speed", "Adjust your flying speed.", "️", DashPage, 6, 100, 20, 200, function(v) Config.FlySpeed = v end)
+
+-- MOVEMENT PAGE
+local MovePage = Pages["Movement"]
+CreateToggleCard("Fly", "Fly around the map freely.", "✈️", MovePage, 1, false, function(v) Config.Fly.Enabled = v end)
+CreateSliderCard("Fly Speed", "Speed while flying.", "✈️", MovePage, 2, 60, 20, 200, function(v) Config.Fly.Speed = v end)
+CreateToggleCard("Noclip", "Pass through all objects.", "👻", MovePage, 3, false, function(v) Config.Noclip = v end)
+CreateSliderCard("Walk Speed", "Movement speed.", "🏃", MovePage, 4, 60, 16, 500, function(v) Config.Speed = v end)
+CreateToggleCard("Infinite Jump", "Jump mid-air unlimited.", "⬆️", MovePage, 5, true, function(v) Config.InfiniteJump = v end)
+CreateSliderCard("Jump Power", "Jump height power.", "", MovePage, 6, 120, 50, 500, function(v) Config.JumpPower = v end)
+
+-- COMBAT PAGE (AIMBOT & ESP EXPANDED)
+local CombatPage = Pages["Combat"]
+
+-- Section: Aimbot
+local AimbotHeader = Create("Frame", {Size = UDim2.new(1, -20, 0, 30), BackgroundColor3 = C.Card, BorderSizePixel = 0, LayoutOrder = 1}, CombatPage)
+Create("UICorner", {CornerRadius = UDim.new(0, 6)}, AimbotHeader)
+Create("UIStroke", {Color = C.Accent, Thickness = 1}, AimbotHeader)
+Create("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.new(0, 5, 0, 0), BackgroundTransparency = 1, Text = "🎯 AIMBOT SETTINGS", TextColor3 = C.AccentLight, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, AimbotHeader)
+
+CreateToggleCard("Enable Aimbot", "Auto-lock onto enemies within FOV.", "🎯", CombatPage, 2, false, function(v) Config.Aimbot.Enabled = v end)
+CreateSliderCard("FOV Radius", "Aimbot field of view range.", "📐", CombatPage, 3, 120, 50, 300, function(v) 
+    Config.Aimbot.FOV = v 
+    if FOVCircle then FOVCircle.Radius = v end
+end)
+CreateSliderCard("Smoothness", "Aimbot camera smoothing.", "🎚️", CombatPage, 4, 30, 10, 100, function(v) Config.Aimbot.Smoothness = v / 100 end)
+
+-- Section: ESP
+local ESPHeader = Create("Frame", {Size = UDim2.new(1, -20, 0, 30), BackgroundColor3 = C.Card, BorderSizePixel = 0, LayoutOrder = 5}, CombatPage)
+Create("UICorner", {CornerRadius = UDim.new(0, 6)}, ESPHeader)
+Create("UIStroke", {Color = C.Accent, Thickness = 1}, ESPHeader)
+Create("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.new(0, 5, 0, 0), BackgroundTransparency = 1, Text = "👁️ ESP SETTINGS", TextColor3 = C.AccentLight, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, ESPHeader)
+
+CreateToggleCard("Enable ESP", "Highlight players through walls.", "👁️", CombatPage, 6, false, function(v) Config.ESP.Enabled = v end)
+CreateToggleCard("ESP Box", "Draw 2D bounding boxes.", "", CombatPage, 7, true, function(v) Config.ESP.Box = v end)
+CreateToggleCard("ESP Tracer", "Draw lines from bottom screen.", "📍", CombatPage, 8, true, function(v) Config.ESP.Tracer = v end)
+CreateToggleCard("ESP Name", "Display player names.", "", CombatPage, 9, true, function(v) Config.ESP.Name = v end)
+CreateToggleCard("ESP Health", "Display player health.", "❤️", CombatPage, 10, true, function(v) Config.ESP.Health = v end)
+CreateToggleCard("ESP Distance", "Display distance in studs.", "📏", CombatPage, 11, false, function(v) Config.ESP.Distance = v end)
+
+-- VISUAL PAGE
+local VisualPage = Pages["Visual"]
+CreateToggleCard("Fullbright", "Maximum brightness.", "️", VisualPage, 1, false, function(v)
+    Config.Fullbright = v
+    if v then Lighting.Brightness = 2; Lighting.ClockTime = 14; Lighting.FogEnd = 100000; Lighting.GlobalShadows = false
+    else Lighting.Brightness = 1; Lighting.ClockTime = 12; Lighting.FogEnd = 1000; Lighting.GlobalShadows = true end
+end)
+CreateToggleCard("No Fog", "Remove all fog effects.", "🌫️", VisualPage, 2, false, function(v)
+    Config.NoFog = v
+    if v then Lighting.FogEnd = 100000; Lighting.FogStart = 0
+    else Lighting.FogEnd = 1000; Lighting.FogStart = 0 end
+end)
+CreateToggleCard("Third Person", "Enable third person view.", "", VisualPage, 3, false, function(v) Config.ThirdPerson = v end)
+CreateToggleCard("FPS Unlocker", "Remove FPS cap.", "⚡", VisualPage, 4, true, function(v) Config.FPSUnlock = v end)
+
+-- PLAYER PAGE
+local PlayerPage = Pages["Player"]
+CreateToggleCard("God Mode", "Invincibility toggle.", "🛡️", PlayerPage, 1, false, function(v) Config.GodMode = v end)
+CreateToggleCard("Anti AFK", "Prevent AFK kick.", "⏰", PlayerPage, 2, true, function(v) Config.AntiAFK = v end)
+
+-- UTILITY PAGE
+local UtilPage = Pages["Utility"]
+CreateToggleCard("Chat Spam", "Auto chat messages.", "💬", UtilPage, 1, false, function(v) Config.ChatSpam = v end)
+
+-- SERVER PAGE
+local ServerPage = Pages["Server"]
+local function CreateServerBtn(text, parent)
+    local btn = Create("TextButton", {Size = UDim2.new(1, -20, 0, 40), BackgroundColor3 = C.Card, BorderSizePixel = 0, Text = text, TextColor3 = C.Text, Font = Enum.Font.GothamSemibold, TextSize = 12, LayoutOrder = 1}, parent)
+    Create("UICorner", {CornerRadius = UDim.new(0, 8)}, btn)
+    Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, btn)
+    return btn
+end
+
+local HopBtn = CreateServerBtn("🔄 Server Hop", ServerPage)
+HopBtn.MouseButton1Click:Connect(function()
+    local id = game.PlaceId
+    local servers = {}
+    local success, data = pcall(function() return HttpService:GetAsync("https://games.roblox.com/v1/games/" .. id .. "/servers/Public?sortToken=&cursor=&maxItems=100&excludeFullGames=true") end)
+    if success then
+        local decoded = HttpService:JSONDecode(data)
+        for _, s in ipairs(decoded.data) do
+            if s.playing < s.maxPlayers and s.id ~= game.JobId then table.insert(servers, s.id) end
+        end
+        if #servers > 0 then TeleportService:TeleportToPlaceInstance(id, servers[math.random(1, #servers)], LocalPlayer) end
+    end
+end)
+
+local RejoinBtn = CreateServerBtn(" Rejoin Server", ServerPage)
+RejoinBtn.MouseButton1Click:Connect(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
+
+local LeaveBtn = CreateServerBtn("🚪 Leave Game", ServerPage)
+LeaveBtn.MouseButton1Click:Connect(function() LocalPlayer:Kick("Left via SKYHUB") end)
+
+-- MISC PAGE
+local MiscPage = Pages["Misc"]
+CreateToggleCard("Anti AFK", "Prevent AFK disconnect.", "⏰", MiscPage, 1, true, function(v) Config.AntiAFK = v end)
+
+-- SETTINGS PAGE
+local SettingsPage = Pages["Settings"]
+local function CreateSettingBtn(text, parent)
+    local btn = Create("TextButton", {Size = UDim2.new(1, -20, 0, 40), BackgroundColor3 = C.Card, BorderSizePixel = 0, Text = text, TextColor3 = C.Text, Font = Enum.Font.GothamSemibold, TextSize = 12, LayoutOrder = 1}, parent)
+    Create("UICorner", {CornerRadius = UDim.new(0, 8)}, btn)
+    Create("UIStroke", {Color = C.CardBorder, Thickness = 1}, btn)
+    return btn
+end
+
+CreateSettingBtn("⌨️ Keybind: Right Shift (Toggle GUI)", SettingsPage)
+CreateSettingBtn("🔄 Reset to Default", SettingsPage).MouseButton1Click:Connect(function()
+    Config.Fly.Enabled = false; Config.Noclip = false; Config.ESP.Enabled = false; Config.Aimbot.Enabled = false
+    Config.WalkSpeed = 60; Config.JumpPower = 120
+end)
+CreateSettingBtn("🗑️ Destroy GUI", SettingsPage).MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+    if FOVCircle then FOVCircle:Remove() end
+    for _, obj in pairs(ESPObjects) do if obj.Remove then obj:Remove() end end
+end)
+
+-- FOOTER BAR
+local Footer = Create("Frame", {Size = UDim2.new(1, 0, 0, 30), Position = UDim2.new(0, 0, 1, -30), BackgroundColor3 = C.Sidebar, BorderSizePixel = 0}, MainFrame)
+local function CreateFooterItem(text, icon, xPos)
+    Create("TextLabel", {Size = UDim2.new(0, 150, 1, 0), Position = UDim2.new(0, xPos, 0, 0), BackgroundTransparency = 1, Text = icon .. "  " .. text, TextColor3 = C.Subtext, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, Footer)
+end
+CreateFooterItem("Delta Executor", "⚙️", 15)
+CreateFooterItem("Session: 00:00:00", "", 175)
+CreateFooterItem("Players: " .. #Players:GetPlayers(), "", 335)
+CreateFooterItem("Memory: 0MB", "💾", 495)
+CreateFooterItem("Version: 3.0", "📦", 655)
+
+-- DRAGGING LOGIC
+local Dragging, DragStart, StartPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        Dragging = true; DragStart = input.Position; StartPos = MainFrame.Position
+    end
+end)
+MainFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if Dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - DragStart
+        MainFrame.Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + delta.X, StartPos.Y.Scale, StartPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- MINIMIZE / CLOSE
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    MainFrame:TweenSize(minimized and UDim2.new(0, 920, 0, 50) or UDim2.new(0, 920, 0, 560), "Out", "Quad", 0.2)
+end)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+-- KEYBIND TOGGLE
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
+        Config.GUIVisible = not Config.GUIVisible
+        MainFrame.Visible = Config.GUIVisible
+    end
+end)
+
+-- MAIN EXECUTION LOOP
+local sessionTime = 0
+RunService.RenderStepped:Connect(function(dt)
+    sessionTime = sessionTime + dt
+    local h = math.floor(sessionTime / 3600)
+    local m = math.floor((sessionTime % 3600) / 60)
+    local s = math.floor(sessionTime % 60)
+    
+    for _, lbl in ipairs(Footer:GetDescendants()) do
+        if lbl:IsA("TextLabel") and lbl.Text:find("Session") then lbl.Text = string.format("🕐  Session: %02d:%02d:%02d", h, m, s) end
+        if lbl:IsA("TextLabel") and lbl.Text:find("Players") then lbl.Text = "👥  Players: " .. #Players:GetPlayers() end
+    end
+    
+    -- MOVEMENT & FLY
+    if LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
+        if hum then
+            hum.WalkSpeed = Config.WalkSpeed
+            hum.JumpPower = Config.JumpPower
+        end
+        
+        if Config.Fly.Enabled and hrp then
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            local moveDir = Vector3.new(0, 0, 0)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+            if moveDir.Magnitude > 0 then hrp.CFrame = hrp.CFrame + moveDir.Unit * Config.Fly.Speed * 0.1 end
+        end
+        
+        if Config.Noclip then
+            for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end
+    end
+    
+    -- INFINITE JUMP
+    if Config.InfiniteJump and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+    
+    -- ANTI AFK
+    if Config.AntiAFK and math.random(1, 500) == 1 then
+        local v = Instance.new("VirtualUser"); v:CaptureController(); v:ClickButton2(Vector2.new())
+    end
+
+    -- AIMBOT & ESP LOGIC
+    if DrawingEnabled and FOVCircle then
+        FOVCircle.Visible = Config.Aimbot.Enabled
+        FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y)
+    end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local head = player.Character:FindFirstChild("Head")
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            
+            if not humanoid or humanoid.Health <= 0 then
+                if ESPObjects[player] then
+                    for _, obj in pairs(ESPObjects[player]) do if obj.Remove then obj:Remove() end end
+                    ESPObjects[player] = nil
+                end
+                continue
+            end
+
+            if Config.ESP.Enabled and DrawingEnabled then
+                if not ESPObjects[player] then ESPObjects[player] = {} end
+                local objs = ESPObjects[player]
+                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                
+                if onScreen then
+                    if Config.ESP.Box then
+                        if not objs.Box then objs.Box = DrawingAPI.new("Square"); objs.Box.Thickness = 1; objs.Box.Filled = false end
+                        local size = hrp.Size
+                        local topLeft, _ = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(-size.X, size.Y, 0))
+                        local bottomRight, _ = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(size.X, -size.Y, 0))
+                        objs.Box.Size = Vector2.new(bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y)
+                        objs.Box.Position = Vector2.new(topLeft.X, topLeft.Y)
+                        objs.Box.Color = C.Accent; objs.Box.Visible = true
+                    elseif objs.Box then objs.Box.Visible = false end
+
+                    if Config.ESP.Tracer then
+                        if not objs.Line then objs.Line = DrawingAPI.new("Line"); objs.Line.Thickness = 1 end
+                        objs.Line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        objs.Line.To = Vector2.new(pos.X, pos.Y)
+                        objs.Line.Color = C.Accent; objs.Line.Visible = true
+                    elseif objs.Line then objs.Line.Visible = false end
+                    
+                    if Config.ESP.Name or Config.ESP.Health or Config.ESP.Distance then
+                        if not objs.Text then objs.Text = DrawingAPI.new("Text"); objs.Text.Size = 13; objs.Text.Center = true; objs.Text.Outline = true end
+                        local str = ""
+                        if Config.ESP.Name then str = str .. player.Name .. "\n" end
+                        if Config.ESP.Health then str = str .. math.floor(humanoid.Health) .. " HP\n" end
+                        if Config.ESP.Distance then str = str .. math.floor((hrp.Position - Camera.CFrame.Position).Magnitude) .. " Studs" end
+                        objs.Text.Text = str; objs.Text.Position = Vector2.new(pos.X, pos.Y - 50)
+                        objs.Text.Color = C.AccentLight; objs.Text.Visible = true
+                    elseif objs.Text then objs.Text.Visible = false end
+                else
+                    if objs.Box then objs.Box.Visible = false end
+                    if objs.Line then objs.Line.Visible = false end
+                    if objs.Text then objs.Text.Visible = false end
+                end
+            else
+                if ESPObjects[player] then
+                    for _, obj in pairs(ESPObjects[player]) do if obj.Remove then obj:Remove() end end
+                    ESPObjects[player] = nil
+                end
+            end
+            
+            -- AIMBOT TARGET LOCK
+            if Config.Aimbot.Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+                local target = nil; local minDist = Config.Aimbot.FOV
+                for _, other in pairs(Players:GetPlayers()) do
+                    if other ~= LocalPlayer and other.Character and other.Character:FindFirstChild("Head") then
+                        local otherHum = other.Character:FindFirstChildOfClass("Humanoid")
+                        if otherHum and otherHum.Health > 0 then
+                            local part = other.Character.Head
+                            local screenPos, vis = Camera:WorldToViewportPoint(part.Position)
+                            if vis then
+                                local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                                if dist < minDist then minDist = dist; target = part end
+                            end
+                        end
+                    end
+                end
+                if target then
+                    local goalCF = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+                    Camera.CFrame = Camera.CFrame:Lerp(goalCF, math.clamp(Config.Aimbot.Smoothness, 0.1, 0.9))
+                end
+            end
+        end
+    end
+end)
+
+print("[SKYHUB v3.0] ✅ SYSTEM ONLINE. AIMBOT & ESP ARMED.")
